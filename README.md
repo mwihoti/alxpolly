@@ -4,14 +4,59 @@ A modern, full-featured polling application built with Next.js 15, TypeScript, a
 
 ## 🚀 Features
 
-- **User Authentication**: Sign up, sign in, and manage user accounts
+- **User Authentication**: Supabase auth (email/password)
 - **Poll Creation**: Create polls with multiple options, descriptions, and customizable settings
 - **Voting System**: Simple and intuitive voting interface with real-time results
 - **Dashboard**: Track your polls, view statistics, and manage your account
 - **Responsive Design**: Beautiful UI that works on all devices
 - **Modern Tech Stack**: Built with Next.js 15, TypeScript, and Tailwind CSS
 
-## 🏗️ Project Structure
+## 🧰 Environment Variables
+
+Create a `.env.local` at the project root:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Get these from your Supabase project settings (Project URL and anon public API key).
+
+## 🗃️ Database (Supabase)
+
+Schema SQL: `supabase/migrations/0001_polls.sql`
+
+Apply in Supabase SQL Editor:
+1. Open your project → SQL Editor
+2. Paste contents of `supabase/migrations/0001_polls.sql`
+3. Run and save as migration
+
+Tables created:
+- `public.polls` (owner: `auth.users.id`)
+- `public.poll_options`
+- `public.votes`
+
+Features:
+- RLS enabled with policies for read/write
+- Trigger `trg_votes_single_vote` to enforce single-vote when `allow_multiple_votes = false`
+- Trigger `trg_polls_min_options` to ensure at least 2 options when activating a poll
+- View `public.poll_results` for aggregated results
+
+## 🛠️ Setup
+
+1. Install deps and run:
+```bash
+npm install
+npm run dev
+```
+
+2. Configure Supabase Auth (email/password enabled) in your Supabase dashboard.
+
+3. Apply the database schema (see section above).
+
+4. Visit `/auth/register` to create a user, then `/auth/login` to sign in.
+
+## 🛠️ Project Structure
 
 ```
 alx-polly/
