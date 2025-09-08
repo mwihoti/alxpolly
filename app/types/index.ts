@@ -1,8 +1,14 @@
 export interface User {
   id: string
   email: string
-  name: string
+  name?: string
   createdAt: Date
+}
+
+export interface PollOption {
+  id: string
+  text: string
+  votes?: number
 }
 
 export interface Poll {
@@ -14,12 +20,8 @@ export interface Poll {
   createdAt: Date
   expiresAt?: Date
   isActive: boolean
-}
-
-export interface PollOption {
-  id: string
-  text: string
-  votes: number
+  allowMultipleVotes?: boolean
+  showResults?: boolean
 }
 
 export interface Vote {
@@ -28,4 +30,8 @@ export interface Vote {
   optionId: string
   userId: string
   createdAt: Date
-} 
+}
+
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: { code: string; message: string; details?: unknown } } 

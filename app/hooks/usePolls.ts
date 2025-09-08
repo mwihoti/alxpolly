@@ -1,57 +1,36 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import { Poll, PollOption } from '@/types'
+import { supabase } from '@/lib/supabase-client'
+import type { PollWithOptions, CreatePollData, PollResult } from '@/types'
 
 export function usePolls() {
-  const [polls, setPolls] = useState<Poll[]>([])
-  const [loading, setLoading] = useState(false)
+  const [polls, setPolls] = useState<PollWithOptions[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch all polls
   const fetchPolls = async () => {
-    setLoading(true)
-    setError(null)
-    
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/polls')
-      // const data = await response.json()
-      
-      // Mock data for now
-      const mockPolls: Poll[] = [
-        {
-          id: "1",
-          title: "What's for lunch today?",
-          description: "Help decide what we should order for the team lunch",
-          options: [
-            { id: "1", text: "Pizza", votes: 8 },
-            { id: "2", text: "Sushi", votes: 6 },
-            { id: "3", text: "Burger & Fries", votes: 5 },
-            { id: "4", text: "Salad Bowl", votes: 5 }
-          ],
-          createdBy: "John Doe",
-          createdAt: new Date("2024-01-18"),
-          expiresAt: new Date("2024-01-20"),
-          isActive: true
-        },
-        {
-          id: "2",
-          title: "Team building activity preference",
-          description: "Vote for your preferred team building activity this quarter",
-          options: [
-            { id: "1", text: "Escape Room", votes: 12 },
-            { id: "2", text: "Cooking Class", votes: 8 },
-            { id: "3", text: "Outdoor Adventure", votes: 6 },
-            { id: "4", text: "Board Game Night", votes: 4 },
-            { id: "5", text: "Art Workshop", votes: 3 }
-          ],
-          createdBy: "Jane Smith",
-          createdAt: new Date("2024-01-17"),
-          expiresAt: new Date("2024-01-25"),
-          isActive: true
-        }
-      ]
-      
-      setPolls(mockPolls)
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('polls')
+        .select(`
+          *,
+          options:poll_options(*),
+          total_votes:votes(count)
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      const pollsWithOptions = data?.map(poll => ({
+        ...poll,
+        options: poll.options || [],
+        total_votes: poll.total_votes?.[0]?.count || 0
+      })) || []
+
+      setPolls(pollsWithOptions)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch polls')
     } finally {
@@ -59,99 +38,100 @@ export function usePolls() {
     }
   }
 
-  // Create a new poll
-  const createPoll = async (pollData: Omit<Poll, 'id' | 'createdAt' | 'isActive'>) => {
-    setLoading(true)
-    setError(null)
-    
+  const createPoll = async (pollData: CreatePollData) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/polls', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(pollData)
-      // })
-      // const newPoll = await response.json()
-      
-      // Mock creation
-      const newPoll: Poll = {
-        ...pollData,
-        id: Date.now().toString(),
-        createdAt: new Date(),
-        isActive: true
-      }
-      
-      setPolls(prev => [newPoll, ...prev])
-      return newPoll
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
+      // Create poll
+      const { data: poll, error: pollError } = await supabase
+        .from('polls')
+        .insert({
+          title: pollData.title,
+          description: pollData.description,
+          created_by: user.id,
+          allow_multiple_votes: pollData.allow_multiple_votes,
+          ends_at: pollData.ends_at,
+        })
+        .select()
+        .single()
+
+      if (pollError) throw pollError
+
+      // Create poll options
+      const options = pollData.options.map((text, index) => ({
+        poll_id: poll.id,
+        text,
+        order: index,
+      }))
+
+      const { error: optionsError } = await supabase
+        .from('poll_options')
+        .insert(options)
+
+      if (optionsError) throw optionsError
+
+      await fetchPolls()
+      return { success: true, pollId: poll.id }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create poll')
-      throw err
-    } finally {
-      setLoading(false)
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to create poll' }
     }
   }
 
-  // Vote on a poll option
-  const voteOnPoll = async (pollId: string, optionId: string) => {
-    setLoading(true)
-    setError(null)
-    
+  const vote = async (pollId: string, optionIds: string[]) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/polls/${pollId}/vote`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ optionId })
-      // })
-      
-      // Mock voting
-      setPolls(prev => prev.map(poll => {
-        if (poll.id === pollId) {
-          return {
-            ...poll,
-            options: poll.options.map(option => {
-              if (option.id === optionId) {
-                return { ...option, votes: option.votes + 1 }
-              }
-              return option
-            })
-          }
-        }
-        return poll
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
+      // Check if user already voted
+      const { data: existingVotes } = await supabase
+        .from('votes')
+        .select('option_id')
+        .eq('poll_id', pollId)
+        .eq('user_id', user.id)
+
+      if (existingVotes && existingVotes.length > 0) {
+        throw new Error('You have already voted on this poll')
+      }
+
+      // Create votes
+      const votes = optionIds.map(optionId => ({
+        poll_id: pollId,
+        option_id: optionId,
+        user_id: user.id,
       }))
+
+      const { error } = await supabase
+        .from('votes')
+        .insert(votes)
+
+      if (error) throw error
+
+      await fetchPolls()
+      return { success: true }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to vote')
-      throw err
-    } finally {
-      setLoading(false)
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to vote' }
     }
   }
 
-  // Get a single poll by ID
-  const getPollById = (id: string) => {
-    return polls.find(poll => poll.id === id)
-  }
-
-  // Delete a poll
-  const deletePoll = async (pollId: string) => {
-    setLoading(true)
-    setError(null)
-    
+  const getPollResults = async (pollId: string): Promise<PollResult[]> => {
     try {
-      // TODO: Replace with actual API call
-      // await fetch(`/api/polls/${pollId}`, { method: 'DELETE' })
-      
-      // Mock deletion
-      setPolls(prev => prev.filter(poll => poll.id !== pollId))
+      const { data, error } = await supabase
+        .from('poll_results')
+        .select('*')
+        .eq('poll_id', pollId)
+        .order('votes', { ascending: false })
+
+      if (error) throw error
+      return data || []
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete poll')
-      throw err
-    } finally {
-      setLoading(false)
+      setError(err instanceof Error ? err.message : 'Failed to fetch results')
+      return []
     }
   }
 
-  // Load polls on mount
   useEffect(() => {
     fetchPolls()
   }, [])
@@ -162,8 +142,7 @@ export function usePolls() {
     error,
     fetchPolls,
     createPoll,
-    voteOnPoll,
-    getPollById,
-    deletePoll
+    vote,
+    getPollResults,
   }
 } 

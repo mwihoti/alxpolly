@@ -1,88 +1,89 @@
 'use client'
 
-import { Button } from "./ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
-import { Share2, Copy, Check, Twitter, Facebook, LinkedIn } from "lucide-react"
-import { useState } from "react"
+import { useState } from 'react'
+import { Button } from '@/app/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
+import { Input } from '@/app/components/ui/input'
+import { Label } from '@/app/components/ui/label'
+import { Share2, Copy, Check, ExternalLink } from 'lucide-react'
 
 interface SharePollProps {
   pollId: string
   pollTitle: string
 }
 
-export default function SharePoll({ pollId, pollTitle }: SharePollProps) {
+export function SharePoll({ pollId, pollTitle }: SharePollProps) {
   const [copied, setCopied] = useState(false)
-  const [showShareOptions, setShowShareOptions] = useState(false)
-  
-  const pollUrl = `${window.location.origin}/polls/${pollId}`
-  const shareText = `Check out this poll: ${pollTitle}`
+  const [showShare, setShowShare] = useState(false)
 
-  const copyToClipboard = async () => {
+  const pollUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/polls/${pollId}`
+    : `/polls/${pollId}`
+
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(pollUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy: ', err)
+      console.error('Failed to copy to clipboard:', err)
     }
   }
 
-  const shareOnSocial = (platform: string) => {
-    let shareUrl = ''
-    
-    switch (platform) {
-      case 'twitter':
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pollUrl)}`
-        break
-      case 'facebook':
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pollUrl)}`
-        break
-      case 'linkedin':
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pollUrl)}`
-        break
-    }
-    
-    if (shareUrl) {
-      window.open(shareUrl, '_blank', 'width=600,height=400')
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: pollTitle,
+          text: `Check out this poll: ${pollTitle}`,
+          url: pollUrl,
+        })
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Failed to share:', err)
+        }
+      }
+    } else {
+      setShowShare(true)
     }
   }
 
-  const toggleShareOptions = () => {
-    setShowShareOptions(!showShareOptions)
+  const openPoll = () => {
+    window.open(pollUrl, '_blank')
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Share Poll</CardTitle>
-        <CardDescription>
-          Share this poll with others to get more votes
-        </CardDescription>
+        <CardTitle className="flex items-center">
+          <Share2 className="w-5 h-5 mr-2" />
+          Share Poll
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Copy Link Section */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
+        <div className="space-y-2">
+          <Label htmlFor="poll-url">Poll URL</Label>
+          <div className="flex space-x-2">
+            <Input
+              id="poll-url"
               value={pollUrl}
               readOnly
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm"
+              className="flex-1"
             />
             <Button
-              onClick={copyToClipboard}
               variant="outline"
               size="sm"
-              className="flex items-center gap-2"
+              onClick={handleCopy}
+              className="min-w-[80px]"
             >
               {copied ? (
                 <>
-                  <Check className="h-4 w-4 text-green-600" />
+                  <Check className="w-4 h-4 mr-2" />
                   Copied!
                 </>
               ) : (
                 <>
-                  <Copy className="h-4 w-4" />
+                  <Copy className="w-4 h-4 mr-2" />
                   Copy
                 </>
               )}
@@ -90,59 +91,24 @@ export default function SharePoll({ pollId, pollTitle }: SharePollProps) {
           </div>
         </div>
 
-        {/* Social Media Sharing */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Share on social media</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleShareOptions}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              {showShareOptions ? 'Hide' : 'Show'} options
-            </Button>
-          </div>
-          
-          {showShareOptions && (
-            <div className="flex gap-2">
-              <Button
-                onClick={() => shareOnSocial('twitter')}
-                variant="outline"
-                size="sm"
-                className="flex-1 flex items-center gap-2"
-              >
-                <Twitter className="h-4 w-4 text-blue-400" />
-                Twitter
-              </Button>
-              <Button
-                onClick={() => shareOnSocial('facebook')}
-                variant="outline"
-                size="sm"
-                className="flex-1 flex items-center gap-2"
-              >
-                <Facebook className="h-4 w-4 text-blue-600" />
-                Facebook
-              </Button>
-              <Button
-                onClick={() => shareOnSocial('linkedin')}
-                variant="outline"
-                size="sm"
-                className="flex-1 flex items-center gap-2"
-              >
-                <LinkedIn className="h-4 w-4 text-blue-700" />
-                LinkedIn
-              </Button>
-            </div>
-          )}
+        <div className="flex space-x-2">
+          <Button onClick={handleShare} className="flex-1">
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
+          <Button variant="outline" onClick={openPoll}>
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Open
+          </Button>
         </div>
 
-        {/* QR Code Section (placeholder for future enhancement) */}
-        <div className="pt-2 border-t border-gray-200">
-          <p className="text-xs text-gray-500 text-center">
-            💡 Tip: You can also share the direct link with your team via email or messaging apps
-          </p>
-        </div>
+        {showShare && !navigator.share && (
+          <div className="p-3 bg-gray-50 rounded-md">
+            <p className="text-sm text-gray-600">
+              Copy the URL above and share it with others, or use the native share button on your device.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

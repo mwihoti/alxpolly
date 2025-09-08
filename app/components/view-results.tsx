@@ -1,171 +1,153 @@
 'use client'
 
-import { Button } from "./ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, Download, Share2, Users, TrendingUp, Clock } from "lucide-react"
-import { useState } from "react"
-
-interface PollOption {
-  id: string
-  text: string
-  votes: number
-  percentage: number
-}
+import { useState, useEffect } from 'react'
+import { Button } from '@/app/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
+import { Progress } from '@/app/components/ui/progress'
+import { Download, BarChart3, Users } from 'lucide-react'
+import type { PollResult } from '@/types'
 
 interface ViewResultsProps {
-  poll: {
-    id: string
-    title: string
-    options: PollOption[]
-    totalVotes: number
-    status: string
-    createdAt: string
-    expiresAt?: string
-  }
+  pollId: string
+  pollTitle: string
+  totalVotes: number
+  getResults: (pollId: string) => Promise<PollResult[]>
 }
 
-export default function ViewResults({ poll }: ViewResultsProps) {
-  const [showDetailedResults, setShowDetailedResults] = useState(false)
-  
-  const sortedOptions = [...poll.options].sort((a, b) => b.votes - a.votes)
-  const winningOption = sortedOptions[0]
-  const totalVotes = poll.totalVotes
+export function ViewResults({ pollId, pollTitle, totalVotes, getResults }: ViewResultsProps) {
+  const [results, setResults] = useState<PollResult[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const exportResults = () => {
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        setLoading(true)
+        const data = await getResults(pollId)
+        setResults(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch results')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchResults()
+  }, [pollId, getResults])
+
+  const exportToCSV = () => {
+    if (results.length === 0) return
+
     const csvContent = [
-      'Option,Votes,Percentage',
-      ...poll.options.map(option => `${option.text},${option.votes},${option.percentage}%`)
-    ].join('\n')
-    
+      ['Option', 'Votes', 'Percentage'],
+      ...results.map(result => [
+        result.option_text,
+        result.votes.toString(),
+        `${result.percentage.toFixed(1)}%`
+      ])
+    ].map(row => row.join(',')).join('\n')
+
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `poll-results-${poll.id}.csv`
+    a.download = `${pollTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_results.csv`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
   }
 
-  const toggleDetailedResults = () => {
-    setShowDetailedResults(!showDetailedResults)
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Loading results...</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="animate-pulse space-y-3">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Error loading results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-600">{error}</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (results.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>No results yet</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-600">This poll hasn&apos;t received any votes yet.</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Poll Results</CardTitle>
-        <CardDescription>
-          Detailed analysis and statistics for this poll
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{totalVotes}</div>
-            <div className="text-sm text-blue-600">Total Votes</div>
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{poll.options.length}</div>
-            <div className="text-sm text-green-600">Options</div>
-          </div>
-        </div>
-
-        {/* Winner Highlight */}
-        {winningOption && (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-5 w-5 text-yellow-600" />
-              <span className="font-semibold text-yellow-800">Current Winner</span>
-            </div>
-            <div className="text-lg font-medium text-yellow-800">{winningOption.text}</div>
-            <div className="text-sm text-yellow-600">
-              {winningOption.votes} votes ({winningOption.percentage}%)
-            </div>
-          </div>
-        )}
-
-        {/* Results Chart */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium">Vote Distribution</h4>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleDetailedResults}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              {showDetailedResults ? 'Show less' : 'Show more'}
-            </Button>
-          </div>
-          
-          <div className="space-y-3">
-            {poll.options.map((option, index) => (
-              <div key={option.id} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{option.text}</span>
-                  <span className="text-gray-600">
-                    {option.votes} votes ({option.percentage}%)
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-blue-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${option.percentage}%` }}
-                  />
-                </div>
-                
-                {showDetailedResults && (
-                  <div className="text-xs text-gray-500 pl-2">
-                    Rank #{index + 1} • {option.votes === 1 ? '1 vote' : `${option.votes} votes`}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t border-gray-200">
-          <Button
-            onClick={exportResults}
-            variant="outline"
-            size="sm"
-            className="flex-1 flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2" />
+            Poll Results
+          </CardTitle>
+          <Button onClick={exportToCSV} size="sm">
+            <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 flex items-center gap-2"
-          >
-            <Share2 className="h-4 w-4" />
-            Share Results
-          </Button>
         </div>
-
-        {/* Poll Status Info */}
-        <div className="pt-2 border-t border-gray-200">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>Created: {poll.createdAt}</span>
+        <div className="flex items-center space-x-4 text-sm text-gray-600">
+          <div className="flex items-center">
+            <Users className="w-4 h-4 mr-1" />
+            {totalVotes} total votes
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {results.map((result) => (
+          <div key={result.option_id} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">{result.option_text}</span>
+              <span className="text-sm text-gray-600">
+                {result.votes} votes ({result.percentage.toFixed(1)}%)
+              </span>
             </div>
-            <div className={`px-2 py-1 rounded-full text-xs ${
-              poll.status === 'active' 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-gray-100 text-gray-800'
-            }`}>
-              {poll.status}
+            <Progress 
+              value={result.percentage} 
+              className="h-2"
+            />
+          </div>
+        ))}
+        
+        <div className="pt-4 border-t border-gray-200">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">Total votes:</span>
+              <span className="ml-2 font-medium">{totalVotes}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Options:</span>
+              <span className="ml-2 font-medium">{results.length}</span>
             </div>
           </div>
-          {poll.expiresAt && (
-            <div className="text-xs text-gray-500 mt-1">
-              Expires: {poll.expiresAt}
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

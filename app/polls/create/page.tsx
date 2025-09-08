@@ -1,103 +1,161 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Plus, X, Calendar } from "lucide-react"
-import Link from "next/link"
-import { useState } from "react"
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/app/auth/auth-context'
+import { usePolls } from '@/app/hooks/usePolls'
+import { Button } from '@/app/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
+import { Input } from '@/app/components/ui/input'
+import { Label } from '@/app/components/ui/label'
+import { Textarea } from '@/app/components/ui/textarea'
+import { Checkbox } from '@/app/components/ui/checkbox'
+import { Plus, X, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
+import type { CreatePollData } from '@/types'
 
 export default function CreatePollPage() {
-  // This would be client-side state in a real app
-  const [options, setOptions] = useState(['', ''])
+  const { user } = useAuth()
+  const { createPoll } = usePolls()
+  const router = useRouter()
+  
+  const [formData, setFormData] = useState<CreatePollData>({
+    title: '',
+    description: '',
+    options: ['', ''],
+    allow_multiple_votes: false,
+    ends_at: '',
+  })
+  
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const addOption = () => {
-    setOptions([...options, ''])
+  if (!user) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign in required</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">
+              You need to be signed in to create a poll.
+            </p>
+            <Link href="/auth/login">
+              <Button>Sign In</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  const removeOption = (index: number) => {
-    if (options.length > 2) {
-      setOptions(options.filter((_, i) => i !== index))
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (formData.title.trim() === '') {
+      setError('Poll title is required')
+      return
+    }
+    
+    if (formData.options.filter(opt => opt.trim() !== '').length < 2) {
+      setError('At least 2 options are required')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const result = await createPoll({
+        ...formData,
+        options: formData.options.filter(opt => opt.trim() !== ''),
+      })
+      
+      if (result.success) {
+        router.push(`/polls/${result.pollId}`)
+      } else {
+        setError(result.error || 'Failed to create poll')
+      }
+    } catch {
+      setError('An unexpected error occurred')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
+  const addOption = () => {
+    setFormData(prev => ({
+      ...prev,
+      options: [...prev.options, ''],
+    }))
+  }
+
+  const removeOption = (index: number) => {
+    if (formData.options.length <= 2) return
+    
+    setFormData(prev => ({
+      ...prev,
+      options: prev.options.filter((_, i) => i !== index),
+    }))
+  }
+
   const updateOption = (index: number, value: string) => {
-    const newOptions = [...options]
-    newOptions[index] = value
-    setOptions(newOptions)
+    setFormData(prev => ({
+      ...prev,
+      options: prev.options.map((opt, i) => i === index ? value : opt),
+    }))
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/polls">
-              <Button variant="outline" size="sm">← Back to Polls</Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Create New Poll</h1>
-              <p className="text-gray-600 mt-2">Create a poll to gather opinions from your community</p>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <Link href="/polls" className="inline-flex items-center text-gray-600 hover:text-gray-900">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to polls
+        </Link>
+      </div>
 
-        {/* Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Poll Details</CardTitle>
-            <CardDescription>
-              Fill in the information below to create your poll
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Title */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Create a new poll</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="title">Poll Title *</Label>
-              <Input 
-                id="title" 
-                placeholder="Enter a clear, descriptive title for your poll"
+              <Label htmlFor="title">Poll title *</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="What would you like to ask?"
                 required
               />
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description" 
-                placeholder="Provide additional context or instructions for voters"
+              <Label htmlFor="description">Description (optional)</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Provide more context about your poll..."
                 rows={3}
               />
             </div>
 
-            {/* Options */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Poll Options *</Label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={addOption}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Option
-                </Button>
-              </div>
-              
+            <div className="space-y-2">
+              <Label>Poll options *</Label>
               <div className="space-y-3">
-                {options.map((option, index) => (
-                  <div key={index} className="flex gap-2">
+                {formData.options.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2">
                     <Input
-                      placeholder={`Option ${index + 1}`}
                       value={option}
                       onChange={(e) => updateOption(index, e.target.value)}
+                      placeholder={`Option ${index + 1}`}
                       required
                     />
-                    {options.length > 2 && (
+                    {formData.options.length > 2 && (
                       <Button
                         type="button"
                         variant="outline"
@@ -105,89 +163,68 @@ export default function CreatePollPage() {
                         onClick={() => removeOption(index)}
                         className="px-2"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="w-4 h-4" />
                       </Button>
                     )}
                   </div>
                 ))}
               </div>
-              
-              <p className="text-sm text-gray-500">
-                Minimum 2 options required. Add up to 10 options.
-              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addOption}
+                className="mt-2"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add option
+              </Button>
             </div>
 
-            {/* Expiration */}
-            <div className="space-y-2">
-              <Label htmlFor="expiresAt">Expiration Date</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input 
-                  id="expiresAt" 
-                  type="date"
-                  className="pl-10"
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="multiple-votes"
+                  checked={formData.allow_multiple_votes}
+                  onCheckedChange={(checked) => 
+                    setFormData(prev => ({ ...prev, allow_multiple_votes: checked as boolean }))
+                  }
+                />
+                <Label htmlFor="multiple-votes">
+                  Allow multiple votes per user
+                </Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ends-at">End date (optional)</Label>
+                <Input
+                  id="ends-at"
+                  type="datetime-local"
+                  value={formData.ends_at}
+                  onChange={(e) => setFormData(prev => ({ ...prev, ends_at: e.target.value }))}
                 />
               </div>
-              <p className="text-sm text-gray-500">
-                Leave empty if you don't want the poll to expire
-              </p>
             </div>
 
-            {/* Settings */}
-            <div className="space-y-4">
-              <Label className="text-base font-medium">Poll Settings</Label>
-              
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="allowMultipleVotes"
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="allowMultipleVotes">
-                    Allow voters to select multiple options
-                  </Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="showResults"
-                    className="rounded border-gray-300"
-                    defaultChecked
-                  />
-                  <Label htmlFor="showResults">
-                    Show results to voters after they vote
-                  </Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="anonymousVoting"
-                    className="rounded border-gray-300"
-                  />
-                  <Label htmlFor="anonymousVoting">
-                    Allow anonymous voting
-                  </Label>
-                </div>
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{error}</p>
               </div>
-            </div>
+            )}
 
-            {/* Actions */}
-            <div className="flex gap-4 pt-4">
-              <Button type="submit" className="flex-1">
-                Create Poll
-              </Button>
+            <div className="flex space-x-3">
               <Link href="/polls" className="flex-1">
-                <Button variant="outline" className="w-full">
+                <Button type="button" variant="outline" className="w-full">
                   Cancel
                 </Button>
               </Link>
+              <Button type="submit" disabled={isSubmitting} className="flex-1">
+                {isSubmitting ? 'Creating...' : 'Create Poll'}
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 } 
