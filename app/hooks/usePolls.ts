@@ -132,6 +132,41 @@ export function usePolls() {
     }
   }
 
+  const castVote = async (pollId: string, optionId: string) => {
+    try {
+      const response = await fetch(`/api/polls/${pollId}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ optionId }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to cast vote');
+      }
+      await fetchPolls(); // Refresh polls to show new vote counts
+      return { success: true };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cast vote');
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to cast vote' };
+    }
+  };
+
+  const getPollWithResults = async (pollId: string): Promise<PollWithOptions | null> => {
+    try {
+      const response = await fetch(`/api/polls/${pollId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch poll results');
+      }
+      const poll = await response.json();
+      return poll;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch poll results');
+      return null;
+    }
+  };
+
   useEffect(() => {
     fetchPolls()
   }, [])
@@ -144,5 +179,7 @@ export function usePolls() {
     createPoll,
     vote,
     getPollResults,
+    castVote,
+    getPollWithResults,
   }
 } 

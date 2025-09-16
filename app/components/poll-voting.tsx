@@ -8,16 +8,17 @@ import { Checkbox } from '@/app/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group'
 import { Label } from '@/app/components/ui/label'
 import { Vote, CheckCircle } from 'lucide-react'
+import { usePolls } from '@/hooks/usePolls'
 import type { PollWithOptions } from '@/types'
 
 interface PollVotingProps {
   poll: PollWithOptions
-  onVote: (pollId: string, optionIds: string[]) => Promise<{ success: boolean; error?: string }>
   hasVoted?: boolean
 }
 
-export function PollVoting({ poll, onVote, hasVoted = false }: PollVotingProps) {
+export function PollVoting({ poll, hasVoted = false }: PollVotingProps) {
   const { user } = useAuth()
+  const { castVote } = usePolls()
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [isVoting, setIsVoting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +62,8 @@ export function PollVoting({ poll, onVote, hasVoted = false }: PollVotingProps) 
     setIsVoting(true)
     setError(null)
 
-    const result = await onVote(poll.id, selectedOptions)
+    // Assuming single option voting for now
+    const result = await castVote(poll.id, selectedOptions[0])
     
     if (result.success) {
       setSuccess(true)
