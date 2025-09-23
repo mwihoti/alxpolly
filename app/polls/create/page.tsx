@@ -25,6 +25,7 @@ export default function CreatePollPage() {
     options: ['', ''],
     allow_multiple_votes: false,
     ends_at: '',
+    vote_type: 'single',
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -67,14 +68,25 @@ export default function CreatePollPage() {
     setError(null)
 
     try {
-      const result = await createPoll({
-        ...formData,
+
+      const payload = {
+        title: formData.title,
+        description: formData.description,
         options: formData.options.filter(opt => opt.trim() !== ''),
-      })
-      
+        allow_multiple_votes: formData.allow_multiple_votes,
+        ends_at: formData.ends_at ? formData.ends_at : null,
+        vote_type: formData.vote_type,
+        anonymous: formData.anonymous ?? false,
+      }
+      console.log(payload)
+
+      const result = await createPoll(payload)
+              console.log(result)
+
       if (result.success) {
         router.push(`/polls/${result.pollId}`)
       } else {
+        console.log(result)
         setError(result.error || 'Failed to create poll')
       }
     } catch {

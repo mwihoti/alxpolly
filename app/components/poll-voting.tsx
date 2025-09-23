@@ -8,7 +8,7 @@ import { Checkbox } from '@/app/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group'
 import { Label } from '@/app/components/ui/label'
 import { Vote, CheckCircle } from 'lucide-react'
-import { usePolls } from '@/hooks/usePolls'
+import { usePolls } from '@/app/hooks/usePolls'
 import type { PollWithOptions } from '@/types'
 
 interface PollVotingProps {

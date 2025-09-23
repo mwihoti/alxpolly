@@ -43,16 +43,22 @@ export function usePolls() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
 
-      // Create poll
-      const { data: poll, error: pollError } = await supabase
-        .from('polls')
-        .insert({
+        const  pollInsert = { 
           title: pollData.title,
           description: pollData.description,
           created_by: user.id,
           allow_multiple_votes: pollData.allow_multiple_votes,
-          ends_at: pollData.ends_at,
-        })
+          ends_at: pollData.ends_at ? pollData.ends_at : null,
+          vote_type: pollData.vote_type,
+          start_at: pollData.start_at ? pollData.start_at : null,
+          anonymous: pollData.anonymous ?? false,
+          is_active: true
+        }
+
+      // Create poll
+      const { data: poll, error: pollError } = await supabase
+        .from('polls')
+        .insert([pollInsert])
         .select()
         .single()
 
@@ -62,7 +68,7 @@ export function usePolls() {
       const options = pollData.options.map((text, index) => ({
         poll_id: poll.id,
         text,
-        order: index,
+        option_order: index,
       }))
 
       const { error: optionsError } = await supabase
@@ -132,20 +138,34 @@ export function usePolls() {
     }
   }
 
-  const castVote = async (pollId: string, optionId: string) => {
+  const castVote = async (pollId: string, optionId: string | string[]) => {
     try {
+      // Get the current session to include auth headers
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+
+      const payload = Array.isArray(optionId) ? { optionIds: optionId } : { optionId };
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+
+      // Include authorization header if session exists
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch(`/api/polls/${pollId}/vote`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ optionId }),
+        headers,
+        body: JSON.stringify(payload),
+        credentials: 'include', // This ensures cookies are sent
       });
+
       const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to cast vote');
-      }
-      await fetchPolls(); // Refresh polls to show new vote counts
+      if (!response.ok) throw new Error(result.error?.message || result.error || 'Failed to cast vote');
+      
+      await fetchPolls();
       return { success: true };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cast vote');

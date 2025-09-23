@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSupabaseServerClient } from '@/lib/supabase-server'
-import type { ActionResult } from '@/types'
+import { getSupabaseServerClient } from '@/app/lib/supabase-server'
+import type { ActionResult } from '@/app/types'
 import { revalidatePath } from 'next/cache'
 
 const optionSchema = z.object({ text: z.string().min(1).max(200) })
@@ -23,14 +23,14 @@ function err(code: string, message: string, details?: unknown): ActionResult<nev
 }
 
 async function requireUser() {
-  const supabase = getSupabaseServerClient()
+  const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) return { user: null as const }
   return { user: data.user }
 }
 
 async function insertPoll(input: z.infer<typeof createPollSchema>, userId: string) {
-  const supabase = getSupabaseServerClient()
+  const supabase = await getSupabaseServerClient()
   const { data: poll, error } = await supabase
     .from('polls')
     .insert({
@@ -44,7 +44,7 @@ async function insertPoll(input: z.infer<typeof createPollSchema>, userId: strin
       anonymous: input.anonymous ?? false,
       created_by: userId,
     })
-    .select('*')
+    .select()
     .single()
 
   if (error || !poll) return err('DB_INSERT_POLL', 'Failed to create poll', error)

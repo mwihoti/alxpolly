@@ -52,7 +52,7 @@ export interface CreatePollData {
   description?: string
   options: string[]
   allow_multiple_votes: boolean
-  ends_at?: string
+  ends_at?: string | null
   vote_type: 'single' | 'multiple' | 'ranked' | 'approval'
   start_at?: string
   anonymous?: boolean
