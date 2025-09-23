@@ -14,6 +14,9 @@ export interface Poll {
   is_active: boolean
   allow_multiple_votes: boolean
   ends_at?: string
+  vote_type: 'single' | 'multiple' | 'ranked' | 'approval'
+  start_at?: string
+  anonymous?: boolean
 }
 
 export interface PollOption {
@@ -50,4 +53,7 @@ export interface CreatePollData {
   options: string[]
   allow_multiple_votes: boolean
   ends_at?: string
-} 
+  vote_type: 'single' | 'multiple' | 'ranked' | 'approval'
+  start_at?: string
+  anonymous?: boolean
+}

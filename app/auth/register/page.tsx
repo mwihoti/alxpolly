@@ -57,7 +57,7 @@ export default function RegisterPage() {
         setError(result.error)
       } else {
         setSuccess(true)
-        // Note: In a real app, you might want to redirect to a verification page
+        // Todo - to redirect to a verification page
         // For now, we'll show a success message
       }
     } catch {
@@ -113,7 +113,7 @@ export default function RegisterPage() {
             <CardTitle>Sign up</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 flex  flex-col justify-center">
               <div className="space-y-2">
                 <Label htmlFor="name">Full name (optional)</Label>
                 <div className="relative">
@@ -205,7 +205,7 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              <Button type="submit" disabled={isSubmitting} className="w-full">
+              <Button type="submit" disabled={isSubmitting} className="  hover:bg-blue-800">
                 {isSubmitting ? 'Creating account...' : 'Create account'}
               </Button>
             </form>

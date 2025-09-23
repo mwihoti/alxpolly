@@ -116,7 +116,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <Button type="submit" disabled={isSubmitting} className="w-full">
+              <Button type="submit" disabled={isSubmitting} className="w-full hover:bg-blue-800">
                 {isSubmitting ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>

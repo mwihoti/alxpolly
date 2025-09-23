@@ -13,6 +13,9 @@ const createPollSchema = z.object({
   allowMultipleVotes: z.boolean().optional().default(false),
   showResults: z.boolean().optional().default(true),
   expiresAt: z.union([z.string().datetime(), z.null()]).optional(),
+  voteType: z.enum(['single', 'multiple', 'ranked', 'approval']),
+  startAt: z.union([z.string().datetime(), z.null()]).optional(),
+  anonymous: z.boolean().optional().default(false),
 })
 
 function err(code: string, message: string, details?: unknown): ActionResult<never> {
@@ -36,6 +39,9 @@ async function insertPoll(input: z.infer<typeof createPollSchema>, userId: strin
       allow_multiple_votes: input.allowMultipleVotes ?? false,
       show_results: input.showResults ?? true,
       expires_at: input.expiresAt ?? null,
+      vote_type: input.voteType,
+      start_at: input.startAt ?? null,
+      anonymous: input.anonymous ?? false,
       created_by: userId,
     })
     .select('*')

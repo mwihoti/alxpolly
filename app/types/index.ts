@@ -22,6 +22,9 @@ export interface Poll {
   isActive: boolean
   allowMultipleVotes?: boolean
   showResults?: boolean
+  voteType: 'single' | 'multiple' | 'ranked' | 'approval'
+  startAt?: Date
+  anonymous?: boolean
 }
 
 export interface Vote {
@@ -34,4 +37,4 @@ export interface Vote {
 
 export type ActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: { code: string; message: string; details?: unknown } } 
+  | { ok: false; error: { code: string; message: string; details?: unknown } }
